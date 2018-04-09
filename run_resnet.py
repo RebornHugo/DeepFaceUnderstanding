@@ -52,7 +52,7 @@ parser.add_argument(
 
 _DEFAULT_IMAGE_SIZE = 224
 _NUM_CHANNELS = 3
-_NUM_CLASSES = 32
+_NUM_CLASSES = 2
 
 _MOMENTUM = 0.9
 _WEIGHT_DECAY = 1e-4
@@ -136,6 +136,7 @@ def input_fn(is_training, feature_label, batch_size, num_epochs=1):
     # with tf.Session() as sess:
     #     qwe = sess.run(images)
     #     rty = sess.run(labels)
+    #     aaa = 32131
     return images, labels
 
 
