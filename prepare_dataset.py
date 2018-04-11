@@ -16,4 +16,4 @@ def get_feature_label(attr, end=10000):
 
 
 if __name__ == '__main__':
-    train = list(get_feature_label('Young', end=10000))
+    train = list(get_feature_label('Smiling', end=10000))

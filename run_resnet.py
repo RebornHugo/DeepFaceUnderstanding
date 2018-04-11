@@ -26,14 +26,14 @@ parser.add_argument('--data_dir', type=str,
                     help='The path to the celebA data directory.')
 
 parser.add_argument('--model_dir', type=str,
-                    default='/home/hugo/datasets/celebA/Male_models',
+                    default='/home/hugo/datasets/celebA/Attractive_models',
                     help='The directory where the model will be stored.')
 
 parser.add_argument(
     '--resnet_size', type=int, default=18, choices=[18, 34, 50, 101, 152, 200],
     help='The size of the ResNet model to use.')
 
-parser.add_argument('--train_epochs', type=int, default=5,
+parser.add_argument('--train_epochs', type=int, default=1,
                     help='The number of epochs to train.')
 
 parser.add_argument('--epochs_per_eval', type=int, default=1,
@@ -218,13 +218,20 @@ def resnet_model_fn(features, labels, mode, params):
 
 
 def main(unused_argv):
-    feature_label = list(get_feature_label('Male', end=200000))
+
+    # change the attr value to change the training_set
+    feature_label = list(get_feature_label(attr='Attractive', end=200000))
 
     # Using the Winograd non-fused algorithms provides a small performance boost.
     os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
 
     # Set up a RunConfig to only save checkpoints once per training cycle.
-    run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1e9)
+    # run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1e9)
+    run_config = tf.estimator.RunConfig(
+        save_checkpoints_secs=1e9,
+        keep_checkpoint_max=10,
+    )
+
     resnet_classifier = tf.estimator.Estimator(
         model_fn=resnet_model_fn, model_dir=FLAGS.model_dir, config=run_config,
         params={

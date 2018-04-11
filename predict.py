@@ -16,16 +16,15 @@ import numpy as np
 
 import resnet_model
 import vgg_preprocessing
-from prepare_dataset import get_feature_label
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_dir', type=str,
-                    default='/home/hugo/datasets/celebA',
+                    default='/home/hugo/Pictures',
                     help='The path to the celebA data directory.')
 
 parser.add_argument('--model_dir', type=str,
-                    default='/home/hugo/datasets/celebA/Male_models',
+                    default='/home/hugo/datasets/celebA',
                     help='The directory where the model will be stored.')
 
 parser.add_argument(
@@ -109,7 +108,7 @@ def input_fn(is_training, filename, batch_size, num_epochs=1):
     """Input function which provides batches for train or eval."""
     # filenames, labels = get_filenames(is_training, feature_label)
     filenames, labels = [filename], [0]
-    filenames = [os.path.join(FLAGS.data_dir, 'img_align_celeba', filename) for filename in filenames]
+    filenames = [os.path.join(FLAGS.data_dir, 'face', filename) for filename in filenames]
     filenames = tf.constant(filenames)
     labels = tf.constant(labels)
     dataset = tf.data.Dataset.from_tensor_slices((filenames, labels))
@@ -218,21 +217,33 @@ def resnet_model_fn(features, labels, mode, params):
         eval_metric_ops=metrics)
 
 
-def main(unused_argv):
-    feature_label = list(get_feature_label('Male', end=200000))
-
+def run_predict(image_name):
     # Using the Winograd non-fused algorithms provides a small performance boost.
     os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
-
+    # image_name = '100_2431_01.png'
     # Set up a RunConfig to only save checkpoints once per training cycle.
     run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1e9)
-    resnet_classifier = tf.estimator.Estimator(
-        model_fn=resnet_model_fn, model_dir=FLAGS.model_dir, config=run_config,
-        params={
-            'resnet_size': FLAGS.resnet_size,
-            'data_format': FLAGS.data_format,
-            'batch_size': FLAGS.batch_size,
-        })
+    ls_attr = ['Male', 'Smiling', 'Eyeglasses', 'Young', 'Attractive']
+    for attr in ls_attr:
+        model_path = os.path.join(FLAGS.model_dir, attr + '_models')
+        classifier = tf.estimator.Estimator(
+            model_fn=resnet_model_fn, model_dir=model_path, config=run_config,
+            params={
+                'resnet_size': FLAGS.resnet_size,
+                'data_format': FLAGS.data_format,
+                'batch_size': FLAGS.batch_size,
+            })
+        results = classifier.predict(input_fn=lambda: input_fn(False, image_name, FLAGS.batch_size)[0])
+        print(attr+'\'s value:')
+        print(list(results)[0])
+
+    # resnet_classifier = tf.estimator.Estimator(
+    #     model_fn=resnet_model_fn, model_dir=FLAGS.model_dir, config=run_config,
+    #     params={
+    #         'resnet_size': FLAGS.resnet_size,
+    #         'data_format': FLAGS.data_format,
+    #         'batch_size': FLAGS.batch_size,
+    #     })
     # for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
     #     tensors_to_log = {
     #         'learning_rate': 'learning_rate',
@@ -254,13 +265,14 @@ def main(unused_argv):
     #         input_fn=lambda: input_fn(False, feature_label, FLAGS.batch_size))
     #     print(eval_results)
 
-    print('Starting to predict.')
-    predict_results = resnet_classifier.predict(
-        input_fn=lambda: input_fn(False, '101304.jpg', FLAGS.batch_size)[0])
-    print(list(predict_results))
+    # print('Starting to predict.')
+    # predict_results = resnet_classifier.predict(
+    #     input_fn=lambda: input_fn(False, 'delrey.jpg', FLAGS.batch_size)[0])
+    # print(list(predict_results)[0])
 
 
 if __name__ == '__main__':
-    tf.logging.set_verbosity(tf.logging.INFO)
+    # tf.logging.set_verbosity(tf.logging.INFO)
     FLAGS, unparsed = parser.parse_known_args()
-    tf.app.run(argv=[sys.argv[0]] + unparsed)
+    # tf.app.run(argv=[sys.argv[0]] + unparsed)
+    run_predict('100_2431_01.png')
