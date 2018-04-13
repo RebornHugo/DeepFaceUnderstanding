@@ -1,4 +1,4 @@
-"""Runs a ResNet model on the ImageNet dataset."""
+"""Runs a ResNet model on the CelebA dataset."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -16,37 +16,38 @@ import numpy as np
 
 import resnet_model
 import vgg_preprocessing
+from faceDetect import saveFaces, drawFaces
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--data_dir', type=str,
-                    default='/home/hugo/Pictures',
-                    help='The path to the celebA data directory.')
+# parser.add_argument('--data_dir', type=str,
+#                     default='/home/hugo/Pictures',
+#                     help='The path to the celebA data directory.')
+DATA_DIR = '/home/hugo/Pictures'
 
-parser.add_argument('--model_dir', type=str,
-                    default='/home/hugo/datasets/celebA',
-                    help='The directory where the model will be stored.')
+# parser.add_argument('--model_dir', type=str,
+#                     default='/home/hugo/datasets/celebA',
+#                     help='The directory where the model will be stored.')
+MODEL_DIR = '/home/hugo/datasets/celebA'
 
-parser.add_argument(
-    '--resnet_size', type=int, default=18, choices=[18, 34, 50, 101, 152, 200],
-    help='The size of the ResNet model to use.')
+# parser.add_argument(
+#     '--resnet_size', type=int, default=18, choices=[18, 34, 50, 101, 152, 200],
+#     help='The size of the ResNet model to use.')
+RESNET_SIZE = 18
 
-parser.add_argument('--train_epochs', type=int, default=5,
-                    help='The number of epochs to train.')
+# parser.add_argument('--batch_size', type=int, default=25,
+#                     help='The number of images per batch.')
 
-parser.add_argument('--epochs_per_eval', type=int, default=1,
-                    help='The number of epochs to run in between evaluations.')
+BATCH_SIZE = 25
 
-parser.add_argument('--batch_size', type=int, default=25,
-                    help='The number of images per batch.')
-
-parser.add_argument(
-    '--data_format', type=str, default=None,
-    choices=['channels_first', 'channels_last'],
-    help='A flag to override the data format used in the model. channels_first '
-         'provides a performance boost on GPU but is not always compatible '
-         'with CPU. If left unspecified, the data format will be chosen '
-         'automatically based on whether TensorFlow was built for CPU or GPU.')
+# parser.add_argument(
+#     '--data_format', type=str, default=None,
+#     choices=['channels_first', 'channels_last'],
+#     help='A flag to override the data format used in the model. channels_first '
+#          'provides a performance boost on GPU but is not always compatible '
+#          'with CPU. If left unspecified, the data format will be chosen '
+#          'automatically based on whether TensorFlow was built for CPU or GPU.')
+DATA_FORMAT = None
 
 _DEFAULT_IMAGE_SIZE = 224
 _NUM_CHANNELS = 3
@@ -108,7 +109,8 @@ def input_fn(is_training, filename, batch_size, num_epochs=1):
     """Input function which provides batches for train or eval."""
     # filenames, labels = get_filenames(is_training, feature_label)
     filenames, labels = [filename], [0]
-    filenames = [os.path.join(FLAGS.data_dir, 'face', filename) for filename in filenames]
+    # filenames = [os.path.join(DATA_DIR, 'face', filename) for filename in filenames]
+    filenames = [os.path.join('./', 'detected_face', filename) for filename in filenames]
     filenames = tf.constant(filenames)
     labels = tf.constant(labels)
     dataset = tf.data.Dataset.from_tensor_slices((filenames, labels))
@@ -218,6 +220,10 @@ def resnet_model_fn(features, labels, mode, params):
 
 
 def run_predict(image_name):
+    #  face detect
+    drawFaces(image_name)
+    saveFaces(image_name)
+    res = {}
     # Using the Winograd non-fused algorithms provides a small performance boost.
     os.environ['TF_ENABLE_WINOGRAD_NONFUSED'] = '1'
     # image_name = '100_2431_01.png'
@@ -225,54 +231,20 @@ def run_predict(image_name):
     run_config = tf.estimator.RunConfig().replace(save_checkpoints_secs=1e9)
     ls_attr = ['Male', 'Smiling', 'Eyeglasses', 'Young', 'Attractive']
     for attr in ls_attr:
-        model_path = os.path.join(FLAGS.model_dir, attr + '_models')
+        model_path = os.path.join(MODEL_DIR, attr + '_models')
         classifier = tf.estimator.Estimator(
             model_fn=resnet_model_fn, model_dir=model_path, config=run_config,
             params={
-                'resnet_size': FLAGS.resnet_size,
-                'data_format': FLAGS.data_format,
-                'batch_size': FLAGS.batch_size,
+                'resnet_size': RESNET_SIZE,
+                'data_format': DATA_FORMAT,
+                'batch_size': BATCH_SIZE,
             })
-        results = classifier.predict(input_fn=lambda: input_fn(False, image_name, FLAGS.batch_size)[0])
-        print(attr+'\'s value:')
-        print(list(results)[0])
-
-    # resnet_classifier = tf.estimator.Estimator(
-    #     model_fn=resnet_model_fn, model_dir=FLAGS.model_dir, config=run_config,
-    #     params={
-    #         'resnet_size': FLAGS.resnet_size,
-    #         'data_format': FLAGS.data_format,
-    #         'batch_size': FLAGS.batch_size,
-    #     })
-    # for _ in range(FLAGS.train_epochs // FLAGS.epochs_per_eval):
-    #     tensors_to_log = {
-    #         'learning_rate': 'learning_rate',
-    #         'cross_entropy': 'cross_entropy',
-    #         'train_accuracy': 'train_accuracy'
-    #     }
-    #
-    #     logging_hook = tf.train.LoggingTensorHook(
-    #         tensors=tensors_to_log, every_n_iter=100)
-    #
-    #     print('Starting a training cycle.')
-    #     resnet_classifier.train(
-    #         input_fn=lambda: input_fn(
-    #             True, feature_label, FLAGS.batch_size, FLAGS.epochs_per_eval),
-    #         hooks=[logging_hook])
-    #
-    #     print('Starting to evaluate.')
-    #     eval_results = resnet_classifier.evaluate(
-    #         input_fn=lambda: input_fn(False, feature_label, FLAGS.batch_size))
-    #     print(eval_results)
-
-    # print('Starting to predict.')
-    # predict_results = resnet_classifier.predict(
-    #     input_fn=lambda: input_fn(False, 'delrey.jpg', FLAGS.batch_size)[0])
-    # print(list(predict_results)[0])
+        results = classifier.predict(input_fn=lambda: input_fn(False, image_name, BATCH_SIZE)[0])
+        # print(attr + '\'s value:')
+        # print(list(results)[0])
+        res[attr] = list(results)[0]
+    print(res)
 
 
 if __name__ == '__main__':
-    # tf.logging.set_verbosity(tf.logging.INFO)
-    FLAGS, unparsed = parser.parse_known_args()
-    # tf.app.run(argv=[sys.argv[0]] + unparsed)
-    run_predict('100_2431_01.png')
+    run_predict('delrey.jpg')

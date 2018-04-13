@@ -100,3 +100,7 @@ ENV/
 # mypy
 .mypy_cache/
 .idea/
+/detected_face/
+100_1744_03.png
+delrey.jpg
+detected_face/

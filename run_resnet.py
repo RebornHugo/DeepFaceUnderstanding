@@ -1,4 +1,4 @@
-"""Runs a ResNet model on the ImageNet dataset."""
+"""Runs a ResNet model on the CelebA dataset."""
 
 from __future__ import absolute_import
 from __future__ import division
